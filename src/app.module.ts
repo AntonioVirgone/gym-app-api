@@ -6,9 +6,10 @@ import { ExercisesModule } from './exercises/exercises.module';
 import { GymsModule } from './gyms/gyms.module';
 import { TemplatesModule } from './templates/templates.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
-  imports: [ClientsModule, ExercisesModule, GymsModule, TemplatesModule, PrismaModule],
+  imports: [ClientsModule, ExercisesModule, GymsModule, TemplatesModule, PrismaModule, AuthModule],
   controllers: [AppController],
   providers: [AppService],
 })
