@@ -1,37 +1,38 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class GymsService {
-  private gyms: any[] = [
-    { id: 'g1', name: 'Palestra Centrale' },
-    { id: 'g2', name: 'FitActive Sud' },
-  ];
+  constructor(private prisma: PrismaService) {}
 
-  findAll() {
-    return this.gyms;
+  async findAll() {
+    return this.prisma.gym.findMany();
   }
 
-  findOne(id: string) {
-    return this.gyms.find((c) => c.id === id);
+  async findOne(id: string) {
+    return this.prisma.gym.findUnique({ where: { id } });
   }
 
-  create(clientData: any) {
-    // Inserisce il nuovo cliente all'inizio dell'array
-    this.gyms.unshift(clientData);
-    return clientData;
+  async create(data: any) {
+    // Ignoriamo l'id finto e le eventuali relazioni passate dal frontend
+    const { id, clients, ...gymData } = data;
+
+    return this.prisma.gym.create({
+      data: gymData,
+    });
   }
 
-  update(id: string, updateData: any) {
-    const index = this.gyms.findIndex((c) => c.id === id);
-    if (index > -1) {
-      this.gyms[index] = updateData;
-      return this.gyms[index];
-    }
-    return null;
+  async update(id: string, data: any) {
+    const { id: dataId, clients, ...gymData } = data;
+
+    return this.prisma.gym.update({
+      where: { id },
+      data: gymData,
+    });
   }
 
-  remove(id: string) {
-    this.gyms = this.gyms.filter((c) => c.id !== id);
+  async remove(id: string) {
+    await this.prisma.gym.delete({ where: { id } });
     return { deletedId: id };
   }
 }

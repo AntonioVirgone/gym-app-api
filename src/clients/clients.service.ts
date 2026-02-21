@@ -1,82 +1,105 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ClientsService {
-  // Simulazione Database in memoria
-  private clients: any[] = [
-    {
-      id: 1,
-      name: 'Mario Rossi',
-      email: 'mario@email.com',
-      goal: 'Ipertrofia',
-      activePlan: 'Scheda Forza A',
-      history: [],
-      isActive: true,
-      gymId: 'g1',
-      messages: [
-        {
-          id: 'm1',
-          sender: 'client',
-          text: "Ciao! Sulla panca piana sento un po' di fastidio alla spalla destra, cosa posso fare?",
-          timestamp: '19/02/2026, 14:30',
-          read: true,
-        },
-        {
-          id: 'm2',
-          sender: 'trainer',
-          text: 'Ciao Mario, prova a stringere leggermente la presa e tieni i gomiti più vicini al busto. Altrimenti passiamo ai manubri.',
-          timestamp: '19/02/2026, 15:10',
-          read: true,
-        },
-      ],
-    },
-    {
-      id: 2,
-      name: 'Luigi Verdi',
-      email: 'luigi@email.com',
-      goal: 'Dimagrimento',
-      activePlan: null,
-      history: [],
-      isActive: true,
-      gymId: 'g2',
-      // Inseriamo un messaggio NON LETTO per testare le notifiche
-      messages: [
-        {
-          id: 'm3',
-          sender: 'client',
-          text: 'Ciao, ho un dubbio sulla scheda. Posso sostituire lo squat libero con la leg press oggi? Ho la schiena affaticata.',
-          timestamp: '20/02/2026, 09:15',
-          read: false,
-        },
-      ],
-    },
-  ];
+  constructor(private prisma: PrismaService) {}
 
-  findAll() {
-    return this.clients;
+  async findAll() {
+    const clients = await this.prisma.client.findMany({
+      include: { messages: true },
+    });
+    // Convertiamo le stringhe JSON in oggetti veri per il frontend
+    return clients.map((c) => ({
+      ...c,
+      history: c.history ? JSON.parse(c.history) : [],
+    }));
   }
 
-  findOne(id: string) {
-    return this.clients.find((c) => c.id === id);
-  }
+  async create(data: any) {
+    // 1. Estraiamo ed ignoriamo l'id finto del frontend e le eventuali relazioni
+    const { id, history, messages, gymId, gym, ...clientData } = data;
 
-  create(clientData: any) {
-    // Inserisce il nuovo cliente all'inizio dell'array
-    this.clients.unshift(clientData);
-    return clientData;
-  }
+    // 2. Prepariamo i dati base da salvare, convertendo l'history in stringa JSON
+    const dataToSave: any = {
+      ...clientData,
+      history: JSON.stringify(history || []),
+    };
 
-  update(id: string, updateData: any) {
-    const index = this.clients.findIndex((c) => c.id === id);
-    if (index > -1) {
-      this.clients[index] = updateData;
-      return this.clients[index];
+    // 3. Verifichiamo la palestra e usiamo la sintassi "connect" di Prisma (molto più sicura per le Foreign Key)
+    if (gymId && gymId.trim() !== '') {
+      const gymExists = await this.prisma.gym.findUnique({
+        where: { id: gymId },
+      });
+      if (gymExists) {
+        dataToSave.gym = { connect: { id: gymId } };
+      }
     }
-    return null;
+
+    // 4. Creiamo il cliente
+    const createdClient = await this.prisma.client.create({
+      data: dataToSave,
+    });
+
+    // 5. FIX "PAGINA BIANCA": Riconvertiamo l'history in array prima di mandarla a React!
+    return {
+      ...createdClient,
+      history: createdClient.history ? JSON.parse(createdClient.history) : [],
+      messages: [],
+    };
   }
 
-  remove(id: string) {
-    this.clients = this.clients.filter((c) => c.id !== id);
+  async update(id: string, data: any) {
+    const { id: dataId, history, messages, gymId, gym, ...clientData } = data;
+
+    const dataToSave: any = {
+      ...clientData,
+      history: JSON.stringify(history || []),
+    };
+
+    // Stesso controllo per l'aggiornamento (sui campi diretti o connect in base alla necessità)
+    if (gymId && gymId.trim() !== '') {
+      const gymExists = await this.prisma.gym.findUnique({
+        where: { id: gymId },
+      });
+      if (gymExists) {
+        dataToSave.gymId = gymId;
+      } else {
+        dataToSave.gymId = null;
+      }
+    } else {
+      dataToSave.gymId = null;
+    }
+
+    // Aggiorniamo il cliente
+    await this.prisma.client.update({
+      where: { id },
+      data: dataToSave,
+    });
+
+    // Se ci sono nuovi messaggi, li gestiamo
+    if (messages && messages.length > 0) {
+      for (const msg of messages) {
+        await this.prisma.message.upsert({
+          where: { id: msg.id },
+          update: { read: msg.read },
+          create: {
+            id: msg.id,
+            text: msg.text,
+            sender: msg.sender,
+            timestamp: msg.timestamp,
+            read: msg.read,
+            clientId: id,
+          },
+        });
+      }
+    }
+
+    return this.findAll().then((all) => all.find((c) => c.id === id));
+  }
+
+  async remove(id: string) {
+    await this.prisma.client.delete({ where: { id } });
     return { deletedId: id };
   }
 }

@@ -1,49 +1,67 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class TemplatesService {
-  private templates: any[] = [
-    {
-      id: 't1',
-      name: 'Total Body Principianti',
-      days: [
-        {
-          id: 'd1',
-          name: 'Giorno 1 - Push/Pull',
-          exercises: [
-            { id: 'e1', name: 'Squat', sets: 3, reps: 12, rest: 120 },
-            { id: 'e2', name: 'Panca Piana', sets: 3, reps: 10, rest: 90 },
-          ],
-        },
-      ],
-    },
-  ];
+  constructor(private prisma: PrismaService) {}
 
-  findAll() {
-    return this.templates;
+  async findAll() {
+    const templates = await this.prisma.template.findMany();
+    // Convertiamo le stringhe JSON (i giorni) in array veri per il frontend React
+    return templates.map((t) => ({
+      ...t,
+      days: t.days ? JSON.parse(t.days) : [],
+    }));
   }
 
-  findOne(id: string) {
-    return this.templates.find((c) => c.id === id);
+  async findOne(id: string) {
+    const template = await this.prisma.template.findUnique({ where: { id } });
+    if (!template) return null;
+
+    return {
+      ...template,
+      days: template.days ? JSON.parse(template.days) : [],
+    };
   }
 
-  create(clientData: any) {
-    // Inserisce il nuovo cliente all'inizio dell'array
-    this.templates.unshift(clientData);
-    return clientData;
+  async create(data: any) {
+    // Estraiamo l'id finto del frontend e trasformiamo days in stringa
+    const { id, days, ...templateData } = data;
+
+    const createdTemplate = await this.prisma.template.create({
+      data: {
+        ...templateData,
+        days: JSON.stringify(days || []),
+      },
+    });
+
+    // FIX: Riconvertiamo la stringa in array prima di mandarla a React
+    return {
+      ...createdTemplate,
+      days: createdTemplate.days ? JSON.parse(createdTemplate.days) : [],
+    };
   }
 
-  update(id: string, updateData: any) {
-    const index = this.templates.findIndex((c) => c.id === id);
-    if (index > -1) {
-      this.templates[index] = updateData;
-      return this.templates[index];
-    }
-    return null;
+  async update(id: string, data: any) {
+    const { id: dataId, days, ...templateData } = data;
+
+    const updatedTemplate = await this.prisma.template.update({
+      where: { id },
+      data: {
+        ...templateData,
+        days: JSON.stringify(days || []),
+      },
+    });
+
+    // FIX: Riconvertiamo la stringa in array prima di mandarla a React
+    return {
+      ...updatedTemplate,
+      days: updatedTemplate.days ? JSON.parse(updatedTemplate.days) : [],
+    };
   }
 
-  remove(id: string) {
-    this.templates = this.templates.filter((c) => c.id !== id);
+  async remove(id: string) {
+    await this.prisma.template.delete({ where: { id } });
     return { deletedId: id };
   }
 }

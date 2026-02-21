@@ -1,54 +1,46 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ExercisesService {
-  // Simulazione Database in momoria
-  private exercises: any[] = [
-    {
-      id: '1',
-      name: 'Panca Piana',
-      description: 'Esercizio fondamentale per il petto con bilanciere.',
-      defaultRest: 90,
-    },
-    {
-      id: '2',
-      name: 'Squat',
-      description: 'Accosciata profonda per lo sviluppo delle gambe.',
-      defaultRest: 120,
-    },
-    {
-      id: '4',
-      name: 'Trazioni',
-      description: 'Esercizio a corpo libero per il dorso.',
-      defaultRest: 90,
-    },
-  ];
+  constructor(private prisma: PrismaService) {}
 
-  findAll() {
-    return this.exercises;
+  async findAll() {
+    return this.prisma.exercise.findMany();
   }
 
-  findOne(id: string) {
-    return this.exercises.find((c) => c.id === id);
+  async findOne(id: string) {
+    return this.prisma.exercise.findUnique({ where: { id } });
   }
 
-  create(clientData: any) {
-    // Inserisce il nuovo cliente all'inizio dell'array
-    this.exercises.unshift(clientData);
-    return clientData;
-  }
+  async create(data: any) {
+    const { id, ...exerciseData } = data;
 
-  update(id: string, updateData: any) {
-    const index = this.exercises.findIndex((c) => c.id === id);
-    if (index > -1) {
-      this.exercises[index] = updateData;
-      return this.exercises[index];
+    // Assicuriamoci che defaultRest sia un numero intero, altrimenti Prisma va in errore
+    if (exerciseData.defaultRest) {
+      exerciseData.defaultRest = parseInt(exerciseData.defaultRest, 10);
     }
-    return null;
+
+    return this.prisma.exercise.create({
+      data: exerciseData,
+    });
   }
 
-  remove(id: string) {
-    this.exercises = this.exercises.filter((c) => c.id !== id);
+  async update(id: string, data: any) {
+    const { id: dataId, ...exerciseData } = data;
+
+    if (exerciseData.defaultRest) {
+      exerciseData.defaultRest = parseInt(exerciseData.defaultRest, 10);
+    }
+
+    return this.prisma.exercise.update({
+      where: { id },
+      data: exerciseData,
+    });
+  }
+
+  async remove(id: string) {
+    await this.prisma.exercise.delete({ where: { id } });
     return { deletedId: id };
   }
 }
