@@ -1,26 +1,37 @@
 import { Injectable } from '@nestjs/common';
-import { CreateGymDto } from './dto/create-gym.dto';
-import { UpdateGymDto } from './dto/update-gym.dto';
 
 @Injectable()
 export class GymsService {
-  create(createGymDto: CreateGymDto) {
-    return 'This action adds a new gym';
-  }
+  private gyms: any[] = [
+    { id: 'g1', name: 'Palestra Centrale' },
+    { id: 'g2', name: 'FitActive Sud' },
+  ];
 
   findAll() {
-    return `This action returns all gyms`;
+    return this.gyms;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} gym`;
+  findOne(id: string) {
+    return this.gyms.find((c) => c.id === id);
   }
 
-  update(id: number, updateGymDto: UpdateGymDto) {
-    return `This action updates a #${id} gym`;
+  create(clientData: any) {
+    // Inserisce il nuovo cliente all'inizio dell'array
+    this.gyms.unshift(clientData);
+    return clientData;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} gym`;
+  update(id: string, updateData: any) {
+    const index = this.gyms.findIndex((c) => c.id === id);
+    if (index > -1) {
+      this.gyms[index] = updateData;
+      return this.gyms[index];
+    }
+    return null;
+  }
+
+  remove(id: string) {
+    this.gyms = this.gyms.filter((c) => c.id !== id);
+    return { deletedId: id };
   }
 }
