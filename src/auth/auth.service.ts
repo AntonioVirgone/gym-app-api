@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -7,20 +7,33 @@ export class AuthService {
 
   async validateUser(email: string, pass: string): Promise<any> {
     const user = await this.prisma.trainer.findUnique({ where: { email } });
-
-    // Al primo avvio non hai utenti, quindi ne creiamo uno "al volo" se non esiste
-    if (!user && email === 'trainer@gym.com' && pass === 'password') {
-      return await this.prisma.trainer.create({
-        data: {
-          email: 'trainer@gym.com',
-          password: 'password',
-          name: 'Super Trainer',
-        },
-      });
-    }
-
     if (user && user.password === pass) {
       return user;
+    }
+    return null;
+  }
+
+  async registerUser(name: string, email: string, pass: string): Promise<any> {
+    const existingUser = await this.prisma.trainer.findUnique({
+      where: { email },
+    });
+    if (existingUser) {
+      throw new ConflictException('Email già in uso');
+    }
+    return this.prisma.trainer.create({
+      data: {
+        name,
+        email,
+        password: pass,
+      },
+    });
+  }
+
+  async validateClient(email: string, pass: string): Promise<any> {
+    const client = await this.prisma.client.findFirst({ where: { email } });
+    // Controlliamo la password (o fallback 'password' per compatibilità)
+    if (client && (client.password === pass || pass === 'password')) {
+      return client;
     }
     return null;
   }

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -6,11 +10,12 @@ export class ClientsService {
   constructor(private prisma: PrismaService) {}
 
   async findAll(trainerId: string) {
+    if (!trainerId) throw new BadRequestException('Header trainer-id mancante');
+
     const clients = await this.prisma.client.findMany({
-      where: { trainerId }, // <-- Filtro: restituisce SOLO i clienti di questo trainer
+      where: { trainerId },
       include: { messages: true },
     });
-    // Convertiamo le stringhe JSON in oggetti veri per il frontend
     return clients.map((c) => ({
       ...c,
       history: c.history ? JSON.parse(c.history) : [],
@@ -18,17 +23,16 @@ export class ClientsService {
   }
 
   async create(trainerId: string, data: any) {
-    // 1. Estraiamo ed ignoriamo l'id finto del frontend e le eventuali relazioni
+    if (!trainerId) throw new BadRequestException('Header trainer-id mancante');
+
     const { id, history, messages, gymId, gym, ...clientData } = data;
 
-    // 2. Prepariamo i dati base da salvare, collegandoli esplicitamente al trainer corrente
     const dataToSave: any = {
       ...clientData,
       history: JSON.stringify(history || []),
-      trainer: { connect: { id: trainerId } }, // <-- Collega il cliente all'autore!
+      trainer: { connect: { id: trainerId } },
     };
 
-    // 3. Verifichiamo la palestra
     if (gymId && gymId.trim() !== '') {
       const gymExists = await this.prisma.gym.findUnique({
         where: { id: gymId },
@@ -38,7 +42,6 @@ export class ClientsService {
       }
     }
 
-    // 4. Creiamo il cliente
     const createdClient = await this.prisma.client.create({
       data: dataToSave,
     });
@@ -51,7 +54,8 @@ export class ClientsService {
   }
 
   async update(trainerId: string, id: string, data: any) {
-    // Sicurezza: Verifichiamo che il cliente esista E appartenga a questo trainer
+    if (!trainerId) throw new BadRequestException('Header trainer-id mancante');
+
     const existingClient = await this.prisma.client.findFirst({
       where: { id, trainerId },
     });
@@ -67,7 +71,6 @@ export class ClientsService {
       history: JSON.stringify(history || []),
     };
 
-    // Stesso controllo per l'aggiornamento (sui campi diretti o connect in base alla necessità)
     if (gymId && gymId.trim() !== '') {
       const gymExists = await this.prisma.gym.findUnique({
         where: { id: gymId },
@@ -81,13 +84,11 @@ export class ClientsService {
       dataToSave.gymId = null;
     }
 
-    // Aggiorniamo il cliente
     await this.prisma.client.update({
       where: { id },
       data: dataToSave,
     });
 
-    // Se ci sono nuovi messaggi, li gestiamo
     if (messages && messages.length > 0) {
       for (const msg of messages) {
         await this.prisma.message.upsert({
@@ -109,7 +110,8 @@ export class ClientsService {
   }
 
   async remove(trainerId: string, id: string) {
-    // Sicurezza: impedisce a un trainer di eliminare il cliente di un altro
+    if (!trainerId) throw new BadRequestException('Header trainer-id mancante');
+
     const existingClient = await this.prisma.client.findFirst({
       where: { id, trainerId },
     });
@@ -120,5 +122,57 @@ export class ClientsService {
 
     await this.prisma.client.delete({ where: { id } });
     return { deletedId: id };
+  }
+
+  // --- FUNZIONI PER L'APP CLIENTE ---
+  async getClientDashboard(clientId: string) {
+    const client = await this.prisma.client.findUnique({
+      where: { id: clientId },
+      include: {
+        trainer: true,
+        gym: true,
+        messages: true,
+        logs: true,
+      },
+    });
+
+    if (!client) throw new NotFoundException('Cliente non trovato');
+
+    const historyArray = client.history ? JSON.parse(client.history) : [];
+    const activePlan = historyArray.length > 0 ? historyArray[0] : null;
+
+    const groupedLogs = {};
+    client.logs.forEach((log) => {
+      if (!groupedLogs[log.exerciseId]) groupedLogs[log.exerciseId] = [];
+      groupedLogs[log.exerciseId].push(log);
+    });
+
+    return {
+      id: client.id,
+      name: client.name,
+      email: client.email,
+      goal: client.goal,
+      trainerName: client.trainer?.name || 'Trainer',
+      gymName: client.gym?.name || 'Nessuna Palestra',
+      activePlan: activePlan,
+      messages: client.messages,
+      exerciseLogs: groupedLogs,
+    };
+  }
+
+  async addExerciseLog(clientId: string, exerciseId: string, logData: any) {
+    return this.prisma.exerciseLog.create({
+      data: {
+        id: logData.id,
+        type: logData.type,
+        date: logData.date,
+        time: logData.time,
+        reps: logData.reps,
+        weight: logData.weight,
+        isOld: logData.isOld,
+        exerciseId: exerciseId,
+        client: { connect: { id: clientId } },
+      },
+    });
   }
 }

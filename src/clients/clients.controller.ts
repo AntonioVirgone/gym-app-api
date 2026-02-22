@@ -14,6 +14,22 @@ import { ClientsService } from './clients.service';
 export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
+  // --- Rotte per la Dashboard Cliente (GymApp Atleta) ---
+  @Get('portal/dashboard')
+  getDashboard(@Headers('client-id') clientId: string) {
+    return this.clientsService.getClientDashboard(clientId);
+  }
+
+  @Post('portal/logs/:exerciseId')
+  addLog(
+    @Headers('client-id') clientId: string,
+    @Param('exerciseId') exerciseId: string,
+    @Body() logData: any,
+  ) {
+    return this.clientsService.addExerciseLog(clientId, exerciseId, logData);
+  }
+
+  // --- Rotte per il Trainer (GymApp Manager) ---
   @Post()
   create(
     @Headers('trainer-id') trainerId: string,

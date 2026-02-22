@@ -1,11 +1,12 @@
 import {
-  Body,
   Controller,
-  Delete,
   Get,
-  Param,
-  Patch,
   Post,
+  Body,
+  Param,
+  Delete,
+  Put,
+  Headers,
 } from '@nestjs/common';
 import { TemplatesService } from './templates.service';
 
@@ -14,27 +15,34 @@ export class TemplatesController {
   constructor(private readonly templatesService: TemplatesService) {}
 
   @Post()
-  create(@Body() createTemplateDto: any) {
-    return this.templatesService.create(createTemplateDto);
+  create(
+    @Headers('trainer-id') trainerId: string,
+    @Body() createTemplateDto: any,
+  ) {
+    return this.templatesService.create(trainerId, createTemplateDto);
   }
 
   @Get()
-  findAll() {
-    return this.templatesService.findAll();
+  findAll(@Headers('trainer-id') trainerId: string) {
+    return this.templatesService.findAll(trainerId);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.templatesService.findOne(id);
+  findOne(@Headers('trainer-id') trainerId: string, @Param('id') id: string) {
+    return this.templatesService.findOne(trainerId, id);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateTemplateDto: any) {
-    return this.templatesService.update(id, updateTemplateDto);
+  @Put(':id')
+  update(
+    @Headers('trainer-id') trainerId: string,
+    @Param('id') id: string,
+    @Body() updateTemplateDto: any,
+  ) {
+    return this.templatesService.update(trainerId, id, updateTemplateDto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.templatesService.remove(id);
+  remove(@Headers('trainer-id') trainerId: string, @Param('id') id: string) {
+    return this.templatesService.remove(trainerId, id);
   }
 }

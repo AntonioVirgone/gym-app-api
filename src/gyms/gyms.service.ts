@@ -24,13 +24,17 @@ export class GymsService {
   }
 
   async create(trainerId: string, data: any) {
-    // Ignoriamo l'id finto e le eventuali relazioni passate dal frontend per evitare conflitti Prisma
+    // Aggiungi questo controllo di sicurezza
+    if (!trainerId) {
+      throw new Error('Il trainer-id è mancante negli header della richiesta');
+    }
+
     const { id, clients, trainer, trainerId: bodyTrainerId, ...gymData } = data;
 
     return this.prisma.gym.create({
       data: {
         ...gymData,
-        trainer: { connect: { id: trainerId } }, // <-- Collega la palestra all'autore tramite header!
+        trainer: { connect: { id: trainerId } },
       },
     });
   }

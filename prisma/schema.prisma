@@ -48,19 +48,36 @@ model Template {
 }
 
 model Client {
-  id         String    @id @default(uuid())
+  id         String        @id @default(uuid())
   name       String
   email      String
+  password   String?       @default("password") // <-- Aggiunta password (default "password" per test)
   goal       String
   activePlan String?
-  isActive   Boolean   @default(true)
+  isActive   Boolean       @default(true)
   history    String?
   gymId      String?
-  gym        Gym?      @relation(fields: [gymId], references: [id])
+  gym        Gym?          @relation(fields: [gymId], references: [id])
   messages   Message[]
+  logs       ExerciseLog[] // <-- Relazione con i log
 
   trainerId String
   trainer   Trainer @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+}
+
+// NUOVO MODELLO PER LO STORICO ALLENAMENTI
+model ExerciseLog {
+  id         String  @id @default(uuid())
+  type       String // 'Serie' o 'Riscaldamento'
+  date       String
+  time       String
+  reps       Int
+  weight     Float
+  isOld      Boolean @default(false)
+  exerciseId String // L'ID dell'esercizio (quello dentro il JSON della scheda)
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 }
 
 model Message {

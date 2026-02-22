@@ -1,11 +1,12 @@
 import {
-  Body,
   Controller,
-  Delete,
   Get,
-  Param,
-  Patch,
   Post,
+  Body,
+  Param,
+  Delete,
+  Put,
+  Headers,
 } from '@nestjs/common';
 import { ExercisesService } from './exercises.service';
 
@@ -14,27 +15,34 @@ export class ExercisesController {
   constructor(private readonly exercisesService: ExercisesService) {}
 
   @Post()
-  create(@Body() createExerciseDto: any) {
-    return this.exercisesService.create(createExerciseDto);
+  create(
+    @Headers('trainer-id') trainerId: string,
+    @Body() createExerciseDto: any,
+  ) {
+    return this.exercisesService.create(trainerId, createExerciseDto);
   }
 
   @Get()
-  findAll() {
-    return this.exercisesService.findAll();
+  findAll(@Headers('trainer-id') trainerId: string) {
+    return this.exercisesService.findAll(trainerId);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.exercisesService.findOne(id);
+  findOne(@Headers('trainer-id') trainerId: string, @Param('id') id: string) {
+    return this.exercisesService.findOne(trainerId, id);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateExerciseDto: any) {
-    return this.exercisesService.update(id, updateExerciseDto);
+  @Put(':id')
+  update(
+    @Headers('trainer-id') trainerId: string,
+    @Param('id') id: string,
+    @Body() updateExerciseDto: any,
+  ) {
+    return this.exercisesService.update(trainerId, id, updateExerciseDto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.exercisesService.remove(id);
+  remove(@Headers('trainer-id') trainerId: string, @Param('id') id: string) {
+    return this.exercisesService.remove(trainerId, id);
   }
 }
