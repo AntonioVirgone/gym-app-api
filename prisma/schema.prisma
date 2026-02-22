@@ -1,11 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -15,19 +7,25 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// --- MODELLI DEL DATABASE ---
-
 model Trainer {
   id       String  @id @default(uuid())
   email    String  @unique
-  password String // In produzione andrà hashata con bcrypt!
+  password String
   name     String?
+
+  clients   Client[]
+  gyms      Gym[]
+  exercises Exercise[]
+  templates Template[]
 }
 
 model Gym {
   id      String   @id @default(uuid())
   name    String
   clients Client[]
+
+  trainerId String
+  trainer   Trainer @relation(fields: [trainerId], references: [id], onDelete: Cascade)
 }
 
 model Exercise {
@@ -35,12 +33,18 @@ model Exercise {
   name        String
   description String?
   defaultRest Int     @default(60)
+
+  trainerId String
+  trainer   Trainer @relation(fields: [trainerId], references: [id], onDelete: Cascade)
 }
 
 model Template {
   id   String @id @default(uuid())
   name String
-  days String // Salviamo l'array dei giorni come JSON (Stringa) per semplicità
+  days String
+
+  trainerId String
+  trainer   Trainer @relation(fields: [trainerId], references: [id], onDelete: Cascade)
 }
 
 model Client {
@@ -50,10 +54,13 @@ model Client {
   goal       String
   activePlan String?
   isActive   Boolean   @default(true)
-  history    String? // Salviamo lo storico come JSON (Stringa)
+  history    String?
   gymId      String?
   gym        Gym?      @relation(fields: [gymId], references: [id])
   messages   Message[]
+
+  trainerId String
+  trainer   Trainer @relation(fields: [trainerId], references: [id], onDelete: Cascade)
 }
 
 model Message {

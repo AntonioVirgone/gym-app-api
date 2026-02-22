@@ -1,11 +1,12 @@
 import {
-  Body,
   Controller,
-  Delete,
   Get,
-  Param,
   Post,
+  Body,
+  Param,
+  Delete,
   Put,
+  Headers,
 } from '@nestjs/common';
 import { ClientsService } from './clients.service';
 
@@ -14,22 +15,29 @@ export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
 
   @Post()
-  create(@Body() createClientDto: any) {
-    return this.clientsService.create(createClientDto);
+  create(
+    @Headers('trainer-id') trainerId: string,
+    @Body() createClientDto: any,
+  ) {
+    return this.clientsService.create(trainerId, createClientDto);
   }
 
   @Get()
-  findAll() {
-    return this.clientsService.findAll();
+  findAll(@Headers('trainer-id') trainerId: string) {
+    return this.clientsService.findAll(trainerId);
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateClientDto: any) {
-    return this.clientsService.update(id, updateClientDto);
+  update(
+    @Headers('trainer-id') trainerId: string,
+    @Param('id') id: string,
+    @Body() updateClientDto: any,
+  ) {
+    return this.clientsService.update(trainerId, id, updateClientDto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.clientsService.remove(id);
+  remove(@Headers('trainer-id') trainerId: string, @Param('id') id: string) {
+    return this.clientsService.remove(trainerId, id);
   }
 }

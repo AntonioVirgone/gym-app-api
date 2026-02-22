@@ -1,12 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class ClientsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll() {
+  async findAll(trainerId: string) {
     const clients = await this.prisma.client.findMany({
+      where: { trainerId }, // <-- Filtro: restituisce SOLO i clienti di questo trainer
       include: { messages: true },
     });
     // Convertiamo le stringhe JSON in oggetti veri per il frontend
@@ -16,17 +17,18 @@ export class ClientsService {
     }));
   }
 
-  async create(data: any) {
+  async create(trainerId: string, data: any) {
     // 1. Estraiamo ed ignoriamo l'id finto del frontend e le eventuali relazioni
     const { id, history, messages, gymId, gym, ...clientData } = data;
 
-    // 2. Prepariamo i dati base da salvare, convertendo l'history in stringa JSON
+    // 2. Prepariamo i dati base da salvare, collegandoli esplicitamente al trainer corrente
     const dataToSave: any = {
       ...clientData,
       history: JSON.stringify(history || []),
+      trainer: { connect: { id: trainerId } }, // <-- Collega il cliente all'autore!
     };
 
-    // 3. Verifichiamo la palestra e usiamo la sintassi "connect" di Prisma (molto più sicura per le Foreign Key)
+    // 3. Verifichiamo la palestra
     if (gymId && gymId.trim() !== '') {
       const gymExists = await this.prisma.gym.findUnique({
         where: { id: gymId },
@@ -41,7 +43,6 @@ export class ClientsService {
       data: dataToSave,
     });
 
-    // 5. FIX "PAGINA BIANCA": Riconvertiamo l'history in array prima di mandarla a React!
     return {
       ...createdClient,
       history: createdClient.history ? JSON.parse(createdClient.history) : [],
@@ -49,7 +50,16 @@ export class ClientsService {
     };
   }
 
-  async update(id: string, data: any) {
+  async update(trainerId: string, id: string, data: any) {
+    // Sicurezza: Verifichiamo che il cliente esista E appartenga a questo trainer
+    const existingClient = await this.prisma.client.findFirst({
+      where: { id, trainerId },
+    });
+
+    if (!existingClient) {
+      throw new NotFoundException('Cliente non trovato o non autorizzato');
+    }
+
     const { id: dataId, history, messages, gymId, gym, ...clientData } = data;
 
     const dataToSave: any = {
@@ -95,10 +105,19 @@ export class ClientsService {
       }
     }
 
-    return this.findAll().then((all) => all.find((c) => c.id === id));
+    return this.findAll(trainerId).then((all) => all.find((c) => c.id === id));
   }
 
-  async remove(id: string) {
+  async remove(trainerId: string, id: string) {
+    // Sicurezza: impedisce a un trainer di eliminare il cliente di un altro
+    const existingClient = await this.prisma.client.findFirst({
+      where: { id, trainerId },
+    });
+
+    if (!existingClient) {
+      throw new NotFoundException('Cliente non trovato o non autorizzato');
+    }
+
     await this.prisma.client.delete({ where: { id } });
     return { deletedId: id };
   }

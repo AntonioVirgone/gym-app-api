@@ -1,11 +1,12 @@
 import {
-  Body,
   Controller,
-  Delete,
   Get,
-  Param,
-  Patch,
   Post,
+  Body,
+  Param,
+  Delete,
+  Put,
+  Headers,
 } from '@nestjs/common';
 import { GymsService } from './gyms.service';
 
@@ -14,27 +15,31 @@ export class GymsController {
   constructor(private readonly gymsService: GymsService) {}
 
   @Post()
-  create(@Body() createGymDto: any) {
-    return this.gymsService.create(createGymDto);
+  create(@Headers('trainer-id') trainerId: string, @Body() createGymDto: any) {
+    return this.gymsService.create(trainerId, createGymDto);
   }
 
   @Get()
-  findAll() {
-    return this.gymsService.findAll();
+  findAll(@Headers('trainer-id') trainerId: string) {
+    return this.gymsService.findAll(trainerId);
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.gymsService.findOne(id);
+  findOne(@Headers('trainer-id') trainerId: string, @Param('id') id: string) {
+    return this.gymsService.findOne(trainerId, id);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateGymDto: any) {
-    return this.gymsService.update(id, updateGymDto);
+  @Put(':id')
+  update(
+    @Headers('trainer-id') trainerId: string,
+    @Param('id') id: string,
+    @Body() updateGymDto: any,
+  ) {
+    return this.gymsService.update(trainerId, id, updateGymDto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.gymsService.remove(id);
+  remove(@Headers('trainer-id') trainerId: string, @Param('id') id: string) {
+    return this.gymsService.remove(trainerId, id);
   }
 }
