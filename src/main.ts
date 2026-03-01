@@ -8,7 +8,10 @@ async function bootstrap() {
 
   // Abilita le chiamate dal frontend React
   app.enableCors({
-    origin: 'http://localhost:5173', // L'URL del tuo React
+    origin: [
+      'http://localhost:5173', // L'URL del tuo React
+      'http://localhost:5174', // Porta dell'App Cliente
+    ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });

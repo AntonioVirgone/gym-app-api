@@ -4,10 +4,14 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { MessagesService } from '../messages/messages.service';
 
 @Injectable()
 export class ClientsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private messagesService: MessagesService, // Iniezione del nuovo servizio
+  ) {}
 
   async findAll(trainerId: string) {
     if (!trainerId) throw new BadRequestException('Header trainer-id mancante');
@@ -16,6 +20,7 @@ export class ClientsService {
       where: { trainerId },
       include: { messages: true },
     });
+
     return clients.map((c) => ({
       ...c,
       history: c.history ? JSON.parse(c.history) : [],
@@ -71,39 +76,25 @@ export class ClientsService {
       history: JSON.stringify(history || []),
     };
 
+    // Gestione Palestra
     if (gymId && gymId.trim() !== '') {
       const gymExists = await this.prisma.gym.findUnique({
         where: { id: gymId },
       });
-      if (gymExists) {
-        dataToSave.gymId = gymId;
-      } else {
-        dataToSave.gymId = null;
-      }
+      dataToSave.gymId = gymExists ? gymId : null;
     } else {
       dataToSave.gymId = null;
     }
 
+    // Aggiornamento dati anagrafici
     await this.prisma.client.update({
       where: { id },
       data: dataToSave,
     });
 
+    // Delegazione gestione messaggi al nuovo servizio
     if (messages && messages.length > 0) {
-      for (const msg of messages) {
-        await this.prisma.message.upsert({
-          where: { id: msg.id },
-          update: { read: msg.read },
-          create: {
-            id: msg.id,
-            text: msg.text,
-            sender: msg.sender,
-            timestamp: msg.timestamp,
-            read: msg.read,
-            clientId: id,
-          },
-        });
-      }
+      await this.messagesService.upsertMany(id, messages);
     }
 
     return this.findAll(trainerId).then((all) => all.find((c) => c.id === id));
